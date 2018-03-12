@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+#
+# {{ name }} completion > /etc/bash_completion.d/{{ name }}
+#
+
+__{{ name }}_previous_extglob_setting=$(shopt -p extglob)
+shopt -s extglob
+
+# __{{ name }}_nospace suppresses trailing whitespace
+__{{ name }}_nospace() {
+    # compopt is not available in ancient bash versions
+    type compopt &>/dev/null && compopt -o nospace
+}
+
+# __{{ name }}_pos_first_nonflag finds the position of the first word that is neither
+# option nor an option's argument. If there are options that require arguments,
+# you should pass a glob describing those options, e.g. "--option1|-o|--option2"
+# Use this function to restrict completions to exact positions after the argument list.
+__{{ name }}_pos_first_nonflag() {
+    local argument_flags=$1
+
+    local counter=$((${subcommand_pos:-${command_pos}} + 1))
+    while [ "$counter" -le "$cword" ]; do
+        if [ -n "$argument_flags" ] && eval "case '${words[$counter]}' in $argument_flags) true ;; *) false ;; esac"; then
+            (( counter++ ))
+            # eat "=" in case of --option=arg syntax
+            [ "${words[$counter]}" = "=" ] && (( counter++ ))
+        else
+            case "${words[$counter]}" in
+                -*)
+                    ;;
+                *)
+                    break
+                    ;;
+            esac
+        fi
+
+        # Bash splits words at "=", retaining "=" as a word, examples:
+        # "--debug=false" => 3 words, "--log-opt syslog-facility=daemon" => 4 words
+        while [ "${words[$counter + 1]}" = "=" ] ; do
+            counter=$(( counter + 2))
+        done
+
+        (( counter++ ))
+    done
+
+    echo $counter
+}
+
+# __{{ name }}_to_alternatives transforms a multiline list of strings into a single line
+# string with the words separated by `|`.
+# This is used to prepare arguments to __{{ name }}_pos_first_nonflag().
+__{{ name }}_to_alternatives() {
+    local parts=( $1 )
+    local IFS='|'
+    echo "${parts[*]}"
+}
+
+# __{{ name }}_to_extglob transforms a multiline list of options into an extglob pattern
+# suitable for use in case statements.
+__{{ name }}_to_extglob() {
+    local extglob=$( __{{ name }}_to_alternatives "$1" )
+    echo "@($extglob)"
+}
+
+__{{ name }}_default_completion() {
+    COMPREPLY=( $( compgen -o plusdirs -f -- "$cur" ) )
+    local LASTCHAR=' '
+    if [ ${{ '{#' }}COMPREPLY[@]} = 1 ]; then
+        [ -d "$COMPREPLY" ] && LASTCHAR=/
+        COMPREPLY=$(printf %q%s "$COMPREPLY" "$LASTCHAR")
+    else
+        for ((i=0; i < ${{ '{#' }}COMPREPLY[@]}; i++)); do
+            [ -d "${COMPREPLY[$i]}" ] && COMPREPLY[$i]=${COMPREPLY[$i]}/
+        done
+    fi
+    __{{ name }}_nospace
+}
+
+__{{ name }}_command_completion() {
+    local options_with_args="$1"
+    local boolean_options="$2"
+    local commands="$3"
+
+    local all_options="$options_with_args $boolean_options"
+
+    case "$prev" in
+        $(__{{ name }}_to_extglob "$options_with_args") )
+            __{{ name }}_default_completion
+            return
+            ;;
+    esac
+
+    case "$cur" in
+        -*)
+            COMPREPLY=( $( compgen -W "$all_options" -- "$cur" ) )
+            ;;
+        *)
+            local counter=$( __{{ name }}_pos_first_nonflag "$(__{{ name }}_to_extglob "$options_with_args --")" )
+            if [ "$cword" -eq "$counter" ]; then
+                COMPREPLY=( $( compgen -W "${commands[*]}" -- "$cur" ) )
+            else
+                __{{ name }}_default_completion
+                return
+            fi
+            ;;
+    esac
+}
+
+__{{ name }}_subcommands() {
+    local prefix="$1"
+    local subcommands="$2"
+
+    local counter=$((command_pos + 1))
+    while [ "$counter" -lt "$cword" ]; do
+        case "${words[$counter]}" in
+            $(__{{ name }}_to_extglob "$subcommands") )
+                subcommand_pos=$counter
+                local subcommand=${words[$counter]}
+                local completions_func=${prefix}_${subcommand//-/_}
+                declare -F "$completions_func" >/dev/null && "$completions_func" || __{{ name }}_default_completion
+                return 0
+                ;;
+        esac
+        (( counter++ ))
+    done
+    return 1
+}
+{% macro command_completion(prefix, command) %}
+{{ prefix }}{{ command.name }}() {
+    local subcommands="{% for subcommand in command.commands %}
+        {{ subcommand.name }}{% endfor %}
+    "
+    local aliases="{% for subcommand in command.commands %}
+        {{ subcommand.alias }}{% endfor %}
+    "
+    __{{ name }}_subcommands "{{ prefix }}{{ command.name }}" "$subcommands $aliases" && return
+    local options_with_args="
+        {{ command.options['withArgs'] | join("\n        ") }}
+    "
+    local boolean_options="
+        --help -h
+        {{ command.options['boolean'] | join("\n        ") }}
+    "
+    __{{ name }}_command_completion "$options_with_args" "$boolean_options" "$subcommands"
+}
+{% for subcommand in command.commands %}{{ command_completion(prefix ~ command.name ~ '_', subcommand) }}{% endfor %}{% endmacro %}
+{% for command in commands %}{{ command_completion('_' ~ name ~ '_', command) }}{% endfor %}
+
+_{{ name }}_{{ name }}() {
+    local commands="{% for command in commands %}
+        {{ command.name }}{% endfor %}
+    "
+    __{{ name }}_command_completion "$global_options_with_args" "$global_boolean_options" "$commands"
+}
+
+_{{ name }}() {
+    local previous_extglob_setting=$(shopt -p extglob)
+    shopt -s extglob
+
+    local global_options_with_args="
+        {{ options['withArgs'] | join("\n        ") }}
+    "
+    local global_boolean_options="
+        --help -h
+        {{ options['boolean'] | join("\n        ") }}
+    "
+
+    COMPREPLY=()
+    local cur prev words cword
+    _get_comp_words_by_ref -n : cur prev words cword
+
+    local command='{{ name }}' command_pos=0 subcommand_pos
+    local counter=1
+    while [ "$counter" -lt "$cword" ]; do
+        case "${words[$counter]}" in
+            $(__{{ name }}_to_extglob "$global_options_with_args") )
+                (( counter++ ))
+                ;;
+            -*)
+                ;;
+            =)
+                (( counter++ ))
+                ;;
+            *)
+                command="${words[$counter]}"
+                command_pos=$counter
+                break
+                ;;
+        esac
+        (( counter++ ))
+    done
+
+    local completions_func=_{{ name }}_${command//-/_}
+    declare -F $completions_func >/dev/null && $completions_func || __{{ name }}_default_completion
+
+    eval "$previous_extglob_setting"
+    __ltrim_colon_completions "$cur"
+
+    return 0
+}
+
+eval "$__{{ name }}_previous_extglob_setting"
+unset __{{ name }}_previous_extglob_setting
+
+complete -F _{{ name }} {{ name }}

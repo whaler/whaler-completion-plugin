@@ -1,0 +1,32 @@
+{
+  "name": "whaler-completion-plugin",
+  "description": "Whaler completion plugin",
+  "author": {
+    "name": "Sergei Vizel",
+    "email": "sergei.vizel@gmail.com",
+    "url": "https://github.com/cravler"
+  },
+  "homepage": "https://github.com/whaler/whaler-completion-plugin",
+  "keywords": [
+    "whaler",
+    "completion",
+    "plugin"
+  ],
+  "license": "MIT",
+  "version": "0.1.0",
+  "main": "index.js",
+  "whaler-plugin": true,
+  "dependencies": {
+    "nunjucks": "^3.1.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:whaler/whaler-completion-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/whaler/whaler-completion-plugin/issues"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
