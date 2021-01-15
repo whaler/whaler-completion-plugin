@@ -20,31 +20,29 @@ async function cmd (whaler) {
     cli
         .command('completion')
         .description('Completion functions for bash')
-        .action(async options => {
+        .action(async (options) => {
             nunjucks.configure(__dirname + '/templates');
             console.log(nunjucks.render('bash_completion', generateCompletionTree(cli)));
         })
-        .ignoreEndLine(true);
+    ;
 
 }
 
 // PRIVATE
 
 function generateCompletionTree (node) {
-    if (node._noHelp) {
+    if (node._noHelp || node._hidden) {
         return;
     }
 
     const retVal = {
-        name: node._name,
-        alias: node._alias
+        name: node.name(),
+        alias: node.alias()
     };
 
-    retVal.commands = node.commands
-        .map(command => generateCompletionTree(command))
-        .filter(value => !!value);
+    retVal.commands = node.commands.map(command => generateCompletionTree(command)).filter(value => !!value);
 
-    retVal.options = node.options.map(option => {
+    retVal.options = node.options.filter(option => !option.hidden).map(option => {
         const flags = [];
         if (option.long) {
             flags.push(option.long);
