@@ -5,7 +5,7 @@ This plugin generate completion for whaler.
 ## Install
 
 ```sh
-$ whaler plugins:install whaler-completion-plugin
+whaler plugins:install whaler-completion-plugin
 ```
 
 ## Bash
@@ -17,7 +17,7 @@ Make sure bash completion is installed.
 On a current Linux OS (in a non-minimal installation), bash completion should be available.
 
 ```sh
-$ sudo apt-get install bash-completion
+sudo apt-get install bash-completion
 ```
 
 ### Mac OS
@@ -25,7 +25,7 @@ $ sudo apt-get install bash-completion
 Install with `brew` install bash-completion.
 
 ```sh
-$ brew install bash-completion
+brew install bash-completion
 ```
 
 Add the following to your `~/.bash_profile`:
@@ -39,7 +39,7 @@ fi
 If you’re using `MacPorts` instead of `brew`, use the following steps instead:
 
 ```sh
-$ sudo port install bash-completion
+sudo port install bash-completion
 ```
 
 Add the following lines to `~/.bash_profile`:
@@ -55,7 +55,7 @@ fi
 ## Usage
 
 ```sh
-$ sudo sh -c 'echo | whaler completion > /etc/bash_completion.d/whaler'
+sudo sh -c 'echo | whaler completion > /etc/bash_completion.d/whaler'
 ```
 
 > **NB!** Place the completion script in `/usr/local/etc/bash_completion.d/whaler` on a Mac OS.
